@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>City Builder Simulator</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>City Builder Simulator</h1>
+    <canvas id="cityGrid" width="500" height="500"></canvas>
+    <div id="suggestions"></div>
+
+    <script>
+        // Global variables
+        const ws = new WebSocket('ws://localhost:8765');
+        const canvas = document.getElementById('cityGrid');
+        const ctx = canvas.getContext('2d');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const tileSize = 50;
+
+        // Initialize connections and handlers
+        ws.onopen = function() {
+            console.log("Connected to WebSocket server");
+            // Initial data request (optional)
+            ws.send(JSON.stringify({ action: 'initialize' }));
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                // Clear canvas and redraw grid
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                data.grid.forEach((row, y) => {
+                    row.forEach((building, x) => {
+                        let color;
+                        switch (building.type) {
+                            case 'Residential': color = '#444488'; break;
+                            case 'Commercial': color = '#884444'; break;
+                            case 'Industrial': color = '#448844'; break;
+                            case 'Civic': color = '#888444'; break;
+                            default: color = '#444444';
+                        }
+                        
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize - 2, tileSize - 2);
+                    });
+                });
+
+                // Update suggestions display
+                suggestionsDiv.innerHTML = '<h2>Citizen Suggestions:</h2>' +
+                    data.citizens.map(c => `(${c.x},${c.y}): ${c.suggestion}<br>`).join('');
+
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+
+        ws.onclose = function() {
+            console.log("Connection closed");
+        };
+
+        ws.onerror = function(error) {
+            console.error("WebSocket error:", error);
+        };
+
+        // Handle canvas clicks for suggestions
+        canvas.addEventListener('click', function(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((event.clientX - rect.left) / tileSize);
+            const y = Math.floor((event.clientY - rect.top) / tileSize);
+            
+            // Send action to server (example)
+            ws.send(JSON.stringify({
+                action: 'approveSuggestion',
+                x: x,
+                y: y
+            }));
+        });
+    </script>
+</body>
+</html>
