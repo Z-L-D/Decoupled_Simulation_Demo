@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>City Grid</title>
+    <style>
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, 50px);
+            gap: 2px;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 8px;
+            transition: background-color 0.3s;
+        }
+        .empty { background-color: #f0f0f0; }
+        .residential { background-color: #90EE90; }
+        .commercial { background-color: #87CEEB; }
+        .industrial { background-color: #778899; }
+    </style>
+</head>
+<body>
+    <div class="grid" id="grid"></div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8765');
+        const gridDiv = document.getElementById('grid');
+        const cells = {};
+
+        // Create grid layout
+        for(let x = 0; x < 10; x++) {
+            for(let y = 0; y < 10; y++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell empty';
+                cell.id = `cell-${x}-${y}`;
+                cell.innerHTML = `
+                    <span>${x},${y}</span>
+                    <div class="pollution"></div>
+                    <div class="demand"></div>
+                `;
+                gridDiv.appendChild(cell);
+                cells[`${x}-${y}`] = cell;
+            }
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if(data.type === 'full') {
+                // Initial full state
+                data.data.forEach(tile => updateCell(tile));
+            } else if(data.type === 'delta') {
+                // Delta update
+                data.data.forEach(tile => updateCell(tile));
+            }
+        };
+
+        function updateCell(tile) {
+            const cell = cells[`${tile.x}-${tile.y}`];
+            cell.className = `cell ${tile.zone}`;
+            cell.querySelector('.pollution').textContent = `P:${tile.pollution}`;
+            cell.querySelector('.demand').textContent = `D:${tile.demand}`;
+        }
+
+        ws.onerror = (error) => {
+            console.error('WebSocket Error:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('Connection closed');
+        };
+    </script>
+</body>
+</html>
